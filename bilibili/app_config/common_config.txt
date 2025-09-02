@@ -1,5 +1,5 @@
-username:
-password:
+username: 13712871903
+password: Luotianyi15
 export_dir: E@/视频/youtube
 bitrate: 6000k
 gpu_acceleration: NVIDIA
