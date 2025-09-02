@@ -1,4 +1,4 @@
-username: 
+username:
 password:
 export_dir: E@/视频/youtube
 bitrate: 6000k
