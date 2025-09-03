@@ -163,14 +163,9 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.check_cookies_status()
 
     def login_worker(self, account, password):
-        # 更新配置文件
-        from utils import update_properties_in_config
-        update_properties_in_config("username", account)
-        update_properties_in_config("password", password)
-
         # 执行登录
         try:
-            run_crawler_login()
+            run_crawler_login(username = account, password = password)
             wx.CallAfter(self.on_login_complete)
         except Exception as e:
             wx.MessageBox(f"登录过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
@@ -320,8 +315,8 @@ class ExportConfigDialog(wx.Dialog):
     def load_config(self):
         # 从配置文件加载设置
         export_dir = read_properties_from_config("export_dir")
-        if '@' in export_dir:
-            export_dir = export_dir.replace('@', ':')
+        if '@-@' in export_dir:
+            export_dir = export_dir.replace('@-@', ':')
         bitrate = read_properties_from_config("bitrate")
         gpu_setting = read_properties_from_config("gpu_acceleration")
         delete_setting = read_properties_from_config("is_delete_origin")
@@ -360,7 +355,7 @@ class ExportConfigDialog(wx.Dialog):
         export_dir = export_dir.replace('\\', '/')
         # 如果目录路径包含冒号，则替换为短横线
         if ':' in export_dir:
-            export_dir = export_dir.replace(':', '@')
+            export_dir = export_dir.replace(':', '@-@')
         bitrate = self.bitrate_combo.GetValue()
         gpu_setting = self.gpu_combo.GetValue()
 
@@ -381,8 +376,8 @@ class ExportConfigDialog(wx.Dialog):
         else:
             update_properties_in_config("gpu_acceleration", gpu_setting)
 
-        if '@' in export_dir:
-            export_dir = export_dir.replace('@', ':')
+        if '@-@' in export_dir:
+            export_dir = export_dir.replace('@-@', ':')
         # 创建导出目录（如果不存在）
         if export_dir and not os.path.exists(export_dir):
             try:

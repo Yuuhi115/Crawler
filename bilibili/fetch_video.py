@@ -10,10 +10,12 @@ from bilibili import *
 
 def run_video_crawler(url):
     # global GPU
-    cookie = get_cookies_string()
+    cookie = None
+    if os.path.exists(resource_path("./app_config/cookies.json")):
+        cookie = get_cookies_string()
     path = read_properties_from_config("export_dir")
-    if '@' in path:
-        path = path.replace('@', ':')
+    if '@-@' in path:
+        path = path.replace('@-@', ':')
     if cookie != None:
         # logger.info("加载cookies成功")
         print("加载cookies成功")

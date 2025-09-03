@@ -11,9 +11,9 @@ from utils import *
 
 
 class BilibiliLoginCrawler:
-    def __init__(self, base_url = "https://www.bilibili.com"):
-        self.username = read_properties_from_config("username")
-        self.password = read_properties_from_config("password")
+    def __init__(self, base_url = "https://www.bilibili.com", username = None, password = None):
+        self.username = username
+        self.password = password
         # self.proxy_list = proxy_list
         self.proxy_list = None
         self.proxy_port = ""
@@ -170,10 +170,10 @@ def run_crawler_fetch_page():
         time.sleep(3)
         crawler.quit_crawler()
 
-def run_crawler_login():
+def run_crawler_login(username, password):
     # proxy_list = load_proxy_list(proxy_file_path="../proxy_ip", proxy_filename="proxy_ip_china.csv")
     # print("代理列表：", proxy_list)
-    crawler = BilibiliLoginCrawler()
+    crawler = BilibiliLoginCrawler(username=username, password=password)
     if crawler.init_browser():
         crawler.login()
         time.sleep(5)
