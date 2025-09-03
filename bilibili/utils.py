@@ -279,7 +279,7 @@ def merge_files(file_paths, output_path, output_file, GPU, bitrate):
             threads=1  # GPU编码时通常不需要多线程
         )
     else:
-        logger.error("不支持的GPU类型")
+        print("不支持的GPU类型")
 
     # 清理资源
     video.close()

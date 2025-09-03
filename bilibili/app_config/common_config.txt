@@ -1,4 +1,4 @@
 export_dir: E@-@/视频/bilibili
-bitrate: 6000k
+bitrate: 1000k
 gpu_acceleration: NVIDIA
 is_delete_origin: true

@@ -25,7 +25,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='BvCrawler_v1.0.2',
+    name='BvCrawler_v1.1.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -44,5 +44,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='BvCrawler_v1.0.2',
+    name='BvCrawler_v1.1.0',
 )

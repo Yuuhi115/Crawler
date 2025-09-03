@@ -207,8 +207,8 @@ class BilibiliCrawlerFrame(wx.Frame):
             return
 
         # 检查URL是否包含bilibili视频链接特征
-        if "www.bilibili.com/video/BV" not in url:
-            wx.MessageBox("请输入有效的Bilibili视频链接（应包含www.bilibili.com/video/BV）", "提示",
+        if not ("www.bilibili.com/video/BV" in url or "www.bilibili.com/bangumi/play/ep" in url):
+            wx.MessageBox("请输入有效的Bilibili视频链接", "提示",
                             wx.OK | wx.ICON_WARNING)
             return
 
@@ -218,7 +218,10 @@ class BilibiliCrawlerFrame(wx.Frame):
 
     def download_worker(self, url):
         try:
-            run_video_crawler(url)
+            if "www.bilibili.com/video/BV" in url:
+                run_video_crawler(url, "video")
+            elif "www.bilibili.com/bangumi/play/ep" in url:
+                run_video_crawler(url, "anime")
             wx.MessageBox("视频下载完成", "提示", wx.OK | wx.ICON_INFORMATION)
         except Exception as e:
             wx.MessageBox(f"下载过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
@@ -273,7 +276,7 @@ class ExportConfigDialog(wx.Dialog):
         bitrate_box = wx.StaticBox(panel, label="视频码率设置")
         bitrate_sizer = wx.StaticBoxSizer(bitrate_box, wx.VERTICAL)
 
-        bitrate_choices = ["3000k", "4000k", "5000k", "6000k", "7000k", "8000k"]
+        bitrate_choices = ["1000k", "2000k", "3000k", "4000k", "5000k", "6000k", "7000k", "8000k"]
         self.bitrate_combo = wx.ComboBox(panel, choices=bitrate_choices,
                                          style=wx.CB_DROPDOWN | wx.CB_READONLY)
         bitrate_sizer.Add(self.bitrate_combo, 0, wx.EXPAND | wx.ALL, 5)
