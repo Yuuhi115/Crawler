@@ -2,7 +2,7 @@ import wx
 import threading
 import os
 from fetch_site import run_crawler_login, run_search_page
-# from proxy_config_dialog import ProxyConfigDialog
+from proxy_config_dialog import ProxyConfigDialog
 from fetch_video import run_video_crawler
 from utils import *
 import sys
@@ -71,12 +71,12 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.export_config_btn = wx.Button(self.panel, label="导出设置")
         self.export_config_btn.Bind(wx.EVT_BUTTON, self.on_config)
 
-        # self.proxy_config_btn = wx.Button(self.panel, label="代理设置")
-        # self.proxy_config_btn.Bind(wx.EVT_BUTTON, self.on_proxy_config)
+        self.proxy_config_btn = wx.Button(self.panel, label="代理设置")
+        self.proxy_config_btn.Bind(wx.EVT_BUTTON, self.on_proxy_config)
 
         search_other_H_sizer.Add(self.search_btn, 0, wx.ALL, 5)
         search_other_H_sizer.Add(self.export_config_btn, 0, wx.ALL, 5)
-        # search_other_H_sizer.Add(self.proxy_config_btn, 0, wx.ALL, 5)
+        search_other_H_sizer.Add(self.proxy_config_btn, 0, wx.ALL, 5)
 
         search_sizer.Add(search_other_H_sizer, 0, wx.EXPAND)
 
@@ -202,11 +202,11 @@ class BilibiliCrawlerFrame(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
-    # def on_proxy_config(self, event):
-    #     """代理设置按钮事件处理"""
-    #     dialog = ProxyConfigDialog(self)
-    #     dialog.ShowModal()
-    #     dialog.Destroy()
+    def on_proxy_config(self, event):
+        """代理设置按钮事件处理"""
+        dialog = ProxyConfigDialog(self)
+        dialog.ShowModal()
+        dialog.Destroy()
 
     def search_worker(self, key_word):
         try:

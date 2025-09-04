@@ -1,6 +1,7 @@
 import wx
 from utils import read_properties_from_config, update_properties_in_config
 from get_proxy import *
+import threading
 
 
 class ProxyConfigDialog(wx.Dialog):
@@ -41,6 +42,12 @@ class ProxyConfigDialog(wx.Dialog):
         proxy_sizer.Add(port_sizer, 0, wx.EXPAND)
 
         main_sizer.Add(proxy_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        tip_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        tip_sizer.Add(wx.StaticText(panel, label="提示：本软件获取的代理几乎不可用，如需设置代理，请自行输入可用代理"),
+                      0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        tip_sizer.Add(wx.StaticText(panel, label=""), 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        main_sizer.Add(tip_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 代理列表操作区域
         action_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -109,9 +116,9 @@ class ProxyConfigDialog(wx.Dialog):
     def load_proxy_list(self):
         """从CSV文件加载代理IP列表"""
         proxy_csv_path = "./app_config/proxy_ip_china.csv"
-        if os.path.exists(proxy_csv_path):
+        if os.path.exists(resource_path(proxy_csv_path)):
             try:
-                df = pd.read_csv(proxy_csv_path)
+                df = pd.read_csv(resource_path(proxy_csv_path))
                 if not df.empty:
                     # 清空现有项目
                     self.ip_combo.Clear()
@@ -132,6 +139,12 @@ class ProxyConfigDialog(wx.Dialog):
 
     def on_refresh(self, event):
         """刷新代理列表"""
+        print("开始刷新代理列表...")
+        refresh_thread = threading.Thread(target=self.refresh_worker)
+        refresh_thread.daemon = True
+        refresh_thread.start()
+
+    def refresh_worker(self):
         create_proxies_table_csv()
         if self.load_proxy_list():
             wx.MessageBox("代理列表刷新成功", "提示", wx.OK | wx.ICON_INFORMATION)
@@ -139,6 +152,13 @@ class ProxyConfigDialog(wx.Dialog):
             wx.MessageBox("代理列表刷新失败，请检查代理文件", "错误", wx.OK | wx.ICON_ERROR)
 
     def on_test(self, event):
+        """测试代理连接"""
+        print("开始测试代理连接...")
+        test_thread = threading.Thread(target=self.test_worker)
+        test_thread.daemon = True
+        test_thread.start()
+
+    def test_worker(self):
         """测试代理连接"""
         if not self.proxy_enable_checkbox.GetValue():
             wx.MessageBox("请先启用代理", "提示", wx.OK | wx.ICON_WARNING)
@@ -161,7 +181,25 @@ class ProxyConfigDialog(wx.Dialog):
             return
 
         # 这里应该添加实际的连接测试逻辑
-        wx.MessageBox(f"代理连接测试功能待实现\nIP: {ip}\n端口: {port}", "提示", wx.OK | wx.ICON_INFORMATION)
+        # wx.MessageBox(f"代理连接测试功能待实现\nIP: {ip}\n端口: {port}", "提示", wx.OK | wx.ICON_INFORMATION)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+        }
+        proxy_url = f"http://{ip}:{port}"
+        print(f"代理地址：{proxy_url}")
+        proxies = {
+            "http": proxy_url,
+            "https": proxy_url
+        }
+        try:
+            response = requests.get(url="https://www.baidu.com/", headers=headers, proxies=proxies, timeout=3)
+            print(f"测试连接返回状态码:{response.status_code}")
+            if response.status_code == 200:
+                wx.MessageBox("代理连接成功", "提示", wx.OK | wx.ICON_INFORMATION)
+            else:
+                wx.MessageBox("代理连接失败", "提示", wx.OK | wx.ICON_ERROR)
+        except Exception as e:
+            wx.MessageBox(f"代理连接失败: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
 
     def on_ok(self, event):
         """确定按钮事件"""

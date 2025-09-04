@@ -1,8 +1,8 @@
 export_dir: E@-@/视频/bilibili
-bitrate: 1000k
+bitrate: 2000k
 gpu_acceleration: NVIDIA
 is_delete_origin: true
 export_format: mp4
-proxy_ip: 47.121.129.129
-proxy_port: 8443
+proxy_ip: NaN
+proxy_port: NaN
 proxy_enabled: false

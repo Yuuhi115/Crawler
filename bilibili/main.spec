@@ -14,7 +14,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['pandas','pysimplegui','yt-dlp'],
+    excludes=['pysimplegui','yt-dlp'],
     noarchive=False,
     optimize=0,
 )
@@ -25,7 +25,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='BvCrawler_v1.1.1',
+    name='BvCrawler_v1.1.2',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -44,5 +44,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='BvCrawler_v1.1.1',
+    name='BvCrawler_v1.1.2',
 )
