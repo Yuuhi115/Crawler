@@ -153,6 +153,51 @@ class BilibiliLoginCrawler:
         except Exception as e:
             print(f"登录失败：{e}")
 
+    def login_with_QR_code(self):
+        try:
+            self.driver.get(self.base_url)
+            time.sleep(2)
+            self.content = self.driver.page_source
+            # print(self.content)
+            # 检查最终是否成功获取内容
+            if self.content and len(self.content) >= 500:
+                self.tree = html.fromstring(self.content)
+                login_window_button = self.driver.find_element(By.XPATH, '//div[@class="header-login-entry"]')
+                time.sleep(1)
+                login_window_button.click()
+
+                original_message = "请手动进行扫码登录验证操作! 稍后浏览器将自动跳转并获取cookie"
+                # print(original_message)
+
+                import sys
+                for i in range(30, 0, -1):
+                    sys.stdout.write(f"\r{original_message} 倒计时: {i}秒")
+                    sys.stdout.flush()
+                    time.sleep(1)
+                sys.stdout.write(f"\r{original_message} 倒计时: 完成!")
+                sys.stdout.flush()
+                time.sleep(1)
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+
+                print("开始获取cookies")
+                self.content = self.driver.page_source
+                time.sleep(1)
+                cookies = self.driver.get_cookies()
+                # logger.info("cookie获取成功")
+                print("cookie获取成功")
+                with open(resource_path("./app_config/cookies.json"), "w") as f:
+                    json.dump(cookies, f, indent=4)
+                # logger.info("保存cookies至本地成功")
+                print("保存cookies至本地成功")
+                return True
+            else:
+                print("无法获取有效页面内容")
+                return False
+        except Exception as e:
+            print(f"使用二维码登录失败：{e}")
+            return False
+
     def quit_crawler(self):
         if self.driver:
             self.driver.quit()
@@ -175,7 +220,7 @@ def run_crawler_login(username, password):
     # print("代理列表：", proxy_list)
     crawler = BilibiliLoginCrawler(username=username, password=password)
     if crawler.init_browser():
-        crawler.login()
+        crawler.login_with_QR_code()
         time.sleep(5)
         crawler.quit_crawler()
 

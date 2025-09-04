@@ -2,6 +2,7 @@ import wx
 import threading
 import os
 from fetch_site import run_crawler_login, run_search_page
+# from proxy_config_dialog import ProxyConfigDialog
 from fetch_video import run_video_crawler
 from utils import *
 import sys
@@ -35,21 +36,21 @@ class BilibiliCrawlerFrame(wx.Frame):
         login_sizer = wx.StaticBoxSizer(login_box, wx.VERTICAL)
 
         # 账号密码输入
-        account_sizer = wx.FlexGridSizer(2, 2, 5, 5)
-        account_sizer.AddGrowableCol(1)
-
-        account_sizer.Add(wx.StaticText(self.panel, label="账号:"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.account_text = wx.TextCtrl(self.panel)
-        account_sizer.Add(self.account_text, 1, wx.EXPAND)
-
-        account_sizer.Add(wx.StaticText(self.panel, label="密码:"), 0, wx.ALIGN_CENTER_VERTICAL)
-        self.password_text = wx.TextCtrl(self.panel, style=wx.TE_PASSWORD)
-        account_sizer.Add(self.password_text, 1, wx.EXPAND)
-
-        login_sizer.Add(account_sizer, 0, wx.EXPAND | wx.ALL, 5)
+        # account_sizer = wx.FlexGridSizer(2, 2, 5, 5)
+        # account_sizer.AddGrowableCol(1)
+        #
+        # account_sizer.Add(wx.StaticText(self.panel, label="账号:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        # self.account_text = wx.TextCtrl(self.panel)
+        # account_sizer.Add(self.account_text, 1, wx.EXPAND)
+        #
+        # account_sizer.Add(wx.StaticText(self.panel, label="密码:"), 0, wx.ALIGN_CENTER_VERTICAL)
+        # self.password_text = wx.TextCtrl(self.panel, style=wx.TE_PASSWORD)
+        # account_sizer.Add(self.password_text, 1, wx.EXPAND)
+        #
+        # login_sizer.Add(account_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 登录按钮
-        self.login_btn = wx.Button(self.panel, label="登录并保存Cookies")
+        self.login_btn = wx.Button(self.panel, label="扫码登录并保存Cookies")
         self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
         login_sizer.Add(self.login_btn, 0, wx.EXPAND | wx.ALL, 5)
 
@@ -70,8 +71,12 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.export_config_btn = wx.Button(self.panel, label="导出设置")
         self.export_config_btn.Bind(wx.EVT_BUTTON, self.on_config)
 
+        # self.proxy_config_btn = wx.Button(self.panel, label="代理设置")
+        # self.proxy_config_btn.Bind(wx.EVT_BUTTON, self.on_proxy_config)
+
         search_other_H_sizer.Add(self.search_btn, 0, wx.ALL, 5)
         search_other_H_sizer.Add(self.export_config_btn, 0, wx.ALL, 5)
+        # search_other_H_sizer.Add(self.proxy_config_btn, 0, wx.ALL, 5)
 
         search_sizer.Add(search_other_H_sizer, 0, wx.EXPAND)
 
@@ -148,25 +153,28 @@ class BilibiliCrawlerFrame(wx.Frame):
             self.cookies_status.SetLabel("Cookies状态: 检查出错")
 
     def on_login(self, event):
-        account = self.account_text.GetValue()
-        password = self.password_text.GetValue()
-
-        if not account or not password:
-            wx.MessageBox("请填写账号和密码", "提示", wx.OK | wx.ICON_WARNING)
-            return
+        # account = self.account_text.GetValue()
+        # password = self.password_text.GetValue()
+        #
+        # if not account or not password:
+        #     wx.MessageBox("请填写账号和密码", "提示", wx.OK | wx.ICON_WARNING)
+        #     return
 
         # 在后台线程中执行登录操作
-        login_thread = threading.Thread(target=self.login_worker, args=(account, password))
+        # login_thread = threading.Thread(target=self.login_worker, args=(account, password))
+        login_thread = threading.Thread(target=self.login_worker)
         login_thread.daemon = True
         login_thread.start()
 
         self.check_cookies_status()
 
-    def login_worker(self, account, password):
+    def login_worker(self, account = None, password = None):
         # 执行登录
         try:
-            run_crawler_login(username = account, password = password)
-            wx.CallAfter(self.on_login_complete)
+            if run_crawler_login(username = account, password = password):
+                wx.CallAfter(self.on_login_complete)
+            else:
+                wx.MessageBox("登录失败", "提示", wx.OK | wx.ICON_WARNING)
         except Exception as e:
             wx.MessageBox(f"登录过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
 
@@ -193,6 +201,12 @@ class BilibiliCrawlerFrame(wx.Frame):
         dialog = ExportConfigDialog(self)
         dialog.ShowModal()
         dialog.Destroy()
+
+    # def on_proxy_config(self, event):
+    #     """代理设置按钮事件处理"""
+    #     dialog = ProxyConfigDialog(self)
+    #     dialog.ShowModal()
+    #     dialog.Destroy()
 
     def search_worker(self, key_word):
         try:
@@ -247,7 +261,7 @@ class LogTarget:
 
 class ExportConfigDialog(wx.Dialog):
     def __init__(self, parent):
-        super().__init__(parent, title="导出设置", size=(400, 350))
+        super().__init__(parent, title="导出设置", size=(400, 430))
         self.parent = parent
         self.setup_ui()
         self.load_config()
@@ -302,6 +316,13 @@ class ExportConfigDialog(wx.Dialog):
         delete_sizer.Add(self.delete_combo, 0, wx.EXPAND | wx.ALL, 5)
         main_sizer.Add(delete_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
+        export_format_box = wx.StaticBox(panel, label="导出格式设置")
+        export_format_sizer = wx.StaticBoxSizer(export_format_box, wx.VERTICAL)
+        self.export_format_combo = wx.ComboBox(panel, choices=["mp4", "mp3"],
+                                        style=wx.CB_DROPDOWN | wx.CB_READONLY)
+        export_format_sizer.Add(self.export_format_combo, 0, wx.EXPAND | wx.ALL, 5)
+        main_sizer.Add(export_format_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
         # 按钮区域
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.ok_btn = wx.Button(panel, wx.ID_OK, label="确定")
@@ -323,6 +344,7 @@ class ExportConfigDialog(wx.Dialog):
         bitrate = read_properties_from_config("bitrate")
         gpu_setting = read_properties_from_config("gpu_acceleration")
         delete_setting = read_properties_from_config("is_delete_origin")
+        export_format = read_properties_from_config("export_format")
 
         # 设置默认值
         if export_dir != "":
@@ -345,6 +367,11 @@ class ExportConfigDialog(wx.Dialog):
         else:
             self.delete_combo.SetValue("保留原视频与音频")
 
+        if export_format != "":
+            self.export_format_combo.SetValue(export_format)
+        else:
+            self.export_format_combo.SetValue("mp4")
+
     def on_browse_dir(self, event):
         # 浏览文件夹对话框
         dlg = wx.DirDialog(self, "选择视频导出目录", style=wx.DD_DEFAULT_STYLE)
@@ -365,6 +392,8 @@ class ExportConfigDialog(wx.Dialog):
         # 获取是否删除原视频的设置
         delete_origin = self.delete_combo.GetValue()
 
+        export_format = self.export_format_combo.GetValue()
+
         # 保存是否删除原视频的设置
         if delete_origin == "删除原视频与音频":
             update_properties_in_config("is_delete_origin", "true")
@@ -374,6 +403,7 @@ class ExportConfigDialog(wx.Dialog):
         # 保存到配置文件
         update_properties_in_config("export_dir", export_dir)
         update_properties_in_config("bitrate", bitrate)
+        update_properties_in_config("export_format", export_format)
         if gpu_setting == "不使用GPU":
             update_properties_in_config("gpu_acceleration", "nan")
         else:

@@ -29,14 +29,14 @@ def scrape_table_data(url):
             # 提取表格数据
             data = []
             rows = table.find_all("tr")
-            print(f"表格大小：{str(rows.__sizeof__())}")
+            # print(f"表格大小：{str(rows.__sizeof__())}")
             for row in rows:
                 cols = row.find_all("td")
                 cols = [col.text.strip() for col in cols]
                 data.append(cols)
             return data
         else:
-            print("未找到表格数据")
+            print("未找到代理IP表格数据")
             return None
 
     except requests.RequestException as e:
@@ -46,13 +46,12 @@ def scrape_table_data(url):
         print(f"解析错误: {e}")
         return None
 
-def create_table_csv():
+def create_proxies_table_csv():
     data = scrape_table_data(url)
     df = pd.DataFrame(data,columns=['IP', 'PORT', 'PROTOCOL', 'ANONYMITY', 'REGION','OPERATOR','DELAY','SPEED','RUN_STATE','LAST_CHECK'])
     df = df.dropna()
-    if os.path.exists('../proxy_ip'):
-        df.to_csv('../proxy_ip/proxy_ip_china.csv', index=False)
+    if os.path.exists('./app_config'):
+        df.to_csv('./app_config/proxy_ip_china.csv', index=False)
     else:
-        os.mkdir('../proxy_ip')
-        df.to_csv('../proxy_ip/proxy_ip_china.csv', index=False)
-    print(df)
+        os.mkdir('./app_config')
+        df.to_csv('./app_config/proxy_ip_china.csv', index=False)

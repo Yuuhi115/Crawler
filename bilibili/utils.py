@@ -5,13 +5,13 @@ def load_proxy_list(proxy_file_path, proxy_filename):
     """
     import pandas as pd
     import os
-    df = pd.read_csv(str(os.path.join(proxy_file_path, proxy_filename)))
+    df = pd.read_csv(str(resource_path(f"{proxy_file_path}/{proxy_filename}")))
     # df_socks = df[df['PROTOCOL'].str.contains('SOCK', case=False, na=False)]
     proxy_list = []
     for _, row in df[['IP', 'PORT']].iterrows():
         proxy_list.append({
             'http': f"http://{row['IP']}:{row['PORT']}",
-            'https': f"http://{row['IP']}:{row['PORT']}"
+            'https': f"https://{row['IP']}:{row['PORT']}"
         })
     return proxy_list
 
@@ -300,6 +300,7 @@ def merge_files(file_paths, output_path, output_file, GPU, bitrate):
         try:
             os.remove(f"{file_paths}/video.mp4")
             os.remove(f"{file_paths}/audio.mp3")
+            os.rmdir(file_paths)
             print("已删除原始视频和音频文件")
         except Exception as e:
             print(f"删除原始文件时出错: {e}")
