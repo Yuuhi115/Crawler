@@ -214,6 +214,13 @@ def get_remain_time(cookie_name):
     cookie = [cookie for cookie in cookies if cookie.get("name") == cookie_name][0]
     return int((cookie["expiry_timestamp"] - time.time()) / 86400)
 
+def get_cookie_by_name(cookie_name):
+    import json
+    cookies_path = resource_path("./app_config/cookies.json")
+    with open(cookies_path, 'r', encoding='utf-8') as f:
+        cookies_data = json.load(f)
+        return [cookie for cookie in cookies_data if cookie.get("name") == cookie_name][0]
+
 
 # 带进度条的下载函数
 def download_with_progress(url, headers, filename):

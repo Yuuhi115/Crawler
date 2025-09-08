@@ -1,7 +1,7 @@
 import wx
 import threading
 import os
-from fetch_site import run_crawler_login, run_search_page
+from fetch_site import *
 from proxy_config_dialog import ProxyConfigDialog
 from fetch_video import run_video_crawler
 from utils import *
@@ -12,6 +12,8 @@ class BilibiliCrawlerFrame(wx.Frame):
     def __init__(self):
         super().__init__(parent=None, title="Bilibili视频下载器", size=(600, 500))
         self.panel = wx.Panel(self)
+        self.batch_download_stop_flag = False  # 添加终止标志位
+        self.batch_download_status = False
         self.cookie_expiry = None
         self.create_ui()
         self.SetMinSize((500, 400))
@@ -74,9 +76,17 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.proxy_config_btn = wx.Button(self.panel, label="代理设置")
         self.proxy_config_btn.Bind(wx.EVT_BUTTON, self.on_proxy_config)
 
+        self.uploader_btn = wx.Button(self.panel, label="获取up主页面")
+        self.uploader_btn.Bind(wx.EVT_BUTTON, self.on_open_uploader)
+
+        self.favorite_btn = wx.Button(self.panel, label="检索收藏夹")
+        self.favorite_btn.Bind(wx.EVT_BUTTON, self.on_open_favorite)
+
         search_other_H_sizer.Add(self.search_btn, 0, wx.ALL, 5)
         search_other_H_sizer.Add(self.export_config_btn, 0, wx.ALL, 5)
         search_other_H_sizer.Add(self.proxy_config_btn, 0, wx.ALL, 5)
+        search_other_H_sizer.Add(self.uploader_btn, 0, wx.ALL, 5)
+        search_other_H_sizer.Add(self.favorite_btn, 0, wx.ALL, 5)
 
         search_sizer.Add(search_other_H_sizer, 0, wx.EXPAND)
 
@@ -94,7 +104,21 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.download_btn.Bind(wx.EVT_BUTTON, self.on_download)
         url_sizer.Add(self.download_btn, 0, wx.ALL, 5)
 
+        batch_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.import_batch_btn = wx.Button(self.panel, label="导入视频列表")
+        self.import_batch_btn.Bind(wx.EVT_BUTTON, self.on_import_batch)
+        batch_sizer.Add(self.import_batch_btn, 0, wx.ALL, 5)
+
+        self.imported_file_label = wx.StaticText(self.panel, label="未选择文件")
+        batch_sizer.Add(self.imported_file_label, 1, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+
+        self.batch_download_btn = wx.Button(self.panel, label="批量下载")
+        self.batch_download_btn.Bind(wx.EVT_BUTTON, self.on_batch_download)
+        self.batch_download_btn.Enable(False)  # 初始禁用，导入文件后启用
+        batch_sizer.Add(self.batch_download_btn, 0, wx.ALL, 5)
+
         video_sizer.Add(url_sizer, 0, wx.EXPAND)
+        video_sizer.Add(batch_sizer, 0, wx.EXPAND)
         main_sizer.Add(video_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 日志显示区域
@@ -114,6 +138,11 @@ class BilibiliCrawlerFrame(wx.Frame):
 
         # 底部按钮
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.clear_btn = wx.Button(self.panel, label="终止批量下载")
+        self.clear_btn.Bind(wx.EVT_BUTTON, self.on_stop_batch)
+        button_sizer.Add(self.clear_btn, 0, wx.ALL, 5)
+
         self.clear_btn = wx.Button(self.panel, label="清空日志")
         self.clear_btn.Bind(wx.EVT_BUTTON, self.on_clear_log)
         button_sizer.Add(self.clear_btn, 0, wx.ALL, 5)
@@ -208,6 +237,63 @@ class BilibiliCrawlerFrame(wx.Frame):
         dialog.ShowModal()
         dialog.Destroy()
 
+    def on_open_uploader(self, event):
+        """打开上传页面按钮事件处理"""
+        dialog = wx.TextEntryDialog(self, "请输入up主id:", "uid:", "")
+        if dialog.ShowModal() == wx.ID_OK:
+            uid = dialog.GetValue()
+            if uid:
+                # 在后台线程中执行搜索操作
+                search_space_thread = threading.Thread(target=self.search_space_worker, args=(uid,))
+                search_space_thread.daemon = True
+                search_space_thread.start()
+            else:
+                wx.MessageBox("请输入输入up主id", "提示", wx.OK | wx.ICON_WARNING)
+        dialog.Destroy()
+
+    def search_space_worker(self, uid):
+        try:
+            run_uploader_page(uid)
+        except Exception as e:
+            wx.MessageBox(f"搜索过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+
+    def on_open_favorite(self, event):
+        """打开收藏夹页面按钮事件处理"""
+        if os.path.exists(resource_path("./app_config/cookies.json")):
+            uid = get_cookie_by_name("DedeUserID").get("value")
+            fav_category_list = self.search_favorite_category(uid)
+            # 创建收藏夹选项列表
+            choices = [f"{fav['title']}" for fav in fav_category_list]
+            # 创建单选对话框
+            dialog = wx.SingleChoiceDialog(self, "请选择收藏夹:", "收藏夹选择", choices)
+            if dialog.ShowModal() == wx.ID_OK:
+                selection = dialog.GetSelection()
+                selected_favorite = fav_category_list[selection]
+                print(f"已选择收藏夹: {selected_favorite['title']} (ID: {selected_favorite['id']})")
+                # 在后台线程中执行搜索操作
+                search_favorite_thread = threading.Thread(target=self.search_favorite_worker, args=(selected_favorite, uid))
+                search_favorite_thread.daemon = True
+                search_favorite_thread.start()
+            else:
+                print("未选择收藏夹")
+        else:
+            wx.MessageBox("请先登录！", "提示", wx.OK | wx.ICON_WARNING)
+
+    def search_favorite_category(self, uid):
+        try:
+            fav_category_list = run_favorite_category(uid)
+            if fav_category_list is not None:
+                return fav_category_list
+        except Exception as e:
+            wx.MessageBox(f"搜索收藏夹列表过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+
+    def search_favorite_worker(self, selected_favorite, uid):
+        try:
+            run_favorite_category_page(uid, selected_favorite['id'], selected_favorite['title'])
+        except Exception as e:
+            wx.MessageBox(f"检索收藏夹'{selected_favorite['title']}'信息过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+
+
     def search_worker(self, key_word):
         try:
             run_search_page(key_word)
@@ -239,6 +325,189 @@ class BilibiliCrawlerFrame(wx.Frame):
             wx.MessageBox("视频下载完成", "提示", wx.OK | wx.ICON_INFORMATION)
         except Exception as e:
             wx.MessageBox(f"下载过程中出现错误: {str(e)}", "错误", wx.OK | wx.ICON_ERROR)
+
+    def on_import_batch(self, event):
+        """
+        导入视频列表按钮事件处理
+        """
+        # 创建文件选择对话框
+        wildcard = "Excel文件 (*.xlsx)|*.xlsx|CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*"
+        dialog = wx.FileDialog(self, "选择视频列表文件", wildcard=wildcard,
+                               style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+
+        if dialog.ShowModal() == wx.ID_OK:
+            file_path = dialog.GetPath()
+            self.import_batch_worker(file_path)
+        dialog.Destroy()
+
+    def import_batch_worker(self, file_path):
+        import pandas as pd
+        """
+        导入视频列表工作线程
+        """
+        try:
+            # 根据文件扩展名读取文件
+            if file_path.endswith('.xlsx'):
+                df = pd.read_excel(file_path)
+            elif file_path.endswith('.csv'):
+                df = pd.read_csv(file_path)
+            else:
+                wx.MessageBox("不支持的文件格式，请选择.xlsx或.csv文件", "错误", wx.OK | wx.ICON_ERROR)
+                return
+
+            # 检查必要的列是否存在
+            if 'link' not in df.columns:
+                wx.MessageBox("文件中缺少'link'列，请确保文件包含视频链接", "错误", wx.OK | wx.ICON_ERROR)
+                return
+
+            # 检查title列是否存在
+            has_title = 'title' in df.columns
+
+            # 获取链接列
+            links = df['link'].tolist()  # 转换为列表
+
+            if not links:
+                wx.MessageBox("文件中没有找到有效的视频链接", "提示", wx.OK | wx.ICON_WARNING)
+                return
+
+            # 保存批量数据
+            self.batch_data = df
+            self.batch_file_path = file_path
+
+            # 更新UI显示
+            file_name = os.path.basename(file_path)
+            self.imported_file_label.SetLabel(f"已导入: {file_name} ({len(links)}个视频)")
+            self.batch_download_btn.Enable(True)
+
+            # 在日志区域输出即将下载的视频标题名
+            print(f"成功导入视频列表文件: {file_path}")
+            print(f"共找到 {len(links)} 个视频:")
+
+            if has_title:
+                titles = df['title'].tolist()
+                for i, (title, link) in enumerate(zip(titles, links)):
+                    print(f"  {i + 1}. {title}")
+            else:
+                for i, link in enumerate(links):
+                    print(f"  {i + 1}. {link}")
+
+            wx.MessageBox(f"成功导入 {len(links)} 个视频链接", "提示", wx.OK | wx.ICON_INFORMATION)
+
+        except Exception as e:
+            error_msg = f"导入视频列表过程中出现错误: {str(e)}"
+            print(error_msg)
+            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+    def on_batch_download(self, event):
+        """
+        批量下载按钮事件处理
+        """
+        if self.batch_data is None:
+            wx.MessageBox("请先导入视频列表文件", "提示", wx.OK | wx.ICON_WARNING)
+            return
+
+        # 在后台线程中执行批量下载操作
+        batch_download_thread = threading.Thread(target=self.batch_download_worker_with_progress)
+        batch_download_thread.daemon = True
+        batch_download_thread.start()
+
+    def batch_download_worker_with_progress(self):
+        """
+        带进度显示的批量下载工作线程
+        """
+        try:
+            import pandas as pd
+            if self.batch_data is None:
+                return
+
+            df = self.batch_data
+
+            # 重置终止标志
+            self.batch_download_stop_flag = False
+            self.batch_download_status = True
+
+            # 获取链接列
+            links = df['link'].dropna().tolist()  # 删除空值并转换为列表
+
+            if not links:
+                wx.MessageBox("文件中没有找到有效的视频链接", "提示", wx.OK | wx.ICON_WARNING)
+                return
+
+            print(f"开始批量下载 {len(links)} 个视频...")
+
+            # 逐个下载视频
+            success_count = 0
+            fail_count = 0
+
+            for i, link in enumerate(links):
+                # 检查是否需要终止
+                if self.batch_download_stop_flag:
+                    print("收到终止请求，停止批量下载...")
+                    wx.CallAfter(wx.MessageBox,
+                                 f"批量下载已终止!\n已完成: {i} 个\n成功: {success_count} 个\n失败: {fail_count} 个",
+                                 "提示", wx.OK | wx.ICON_WARNING)
+                    print(f"批量下载已终止! 已完成: {i} 个, 成功: {success_count} 个, 失败: {fail_count} 个")
+                    return
+                try:
+                    print(f"正在下载第 {i + 1}/{len(links)} 个视频: {link}")
+
+                    # 如果有title列，显示视频标题
+                    if 'title' in df.columns and i < len(df['title'].dropna().tolist()):
+                        title = df['title'].dropna().tolist()[i]
+                        print(f"  视频标题: {title}")
+
+                    # 更新进度信息
+                    print(f"进度: {i + 1}/{len(links)} ({((i + 1) / len(links) * 100):.1f}%)")
+
+                    # 根据链接类型调用相应的下载函数
+                    if "www.bilibili.com/video/BV" in link:
+                        run_video_crawler(link, "video")
+                        success_count += 1
+                    elif "www.bilibili.com/bangumi/play/ep" in link:
+                        run_video_crawler(link, "anime")
+                        success_count += 1
+                    else:
+                        print(f"无效的Bilibili视频链接: {link}")
+                        fail_count += 1
+
+                except Exception as e:
+                    print(f"下载链接 {link} 时出现错误: {str(e)}")
+                    fail_count += 1
+
+                # 添加短暂延迟避免请求过于频繁
+                time.sleep(2)
+
+            # 重置终止标志
+            self.batch_download_stop_flag = False
+            self.batch_download_status = False
+
+            # 显示下载结果
+            wx.CallAfter(wx.MessageBox,
+                         f"批量下载完成!\n成功: {success_count} 个\n失败: {fail_count} 个",
+                         "提示", wx.OK | wx.ICON_INFORMATION)
+
+            print(f"批量下载完成! 成功: {success_count} 个, 失败: {fail_count} 个")
+
+        except Exception as e:
+            # 重置终止标志
+            self.batch_download_stop_flag = False
+            error_msg = f"批量下载过程中出现错误: {str(e)}"
+            print(error_msg)
+            wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+    def on_stop_batch(self, event):
+        """
+        终止批量下载按钮事件处理
+        """
+        if hasattr(self, 'batch_download_stop_flag') and self.batch_download_stop_flag == False and self.batch_download_status == True:
+            self.batch_download_stop_flag = True
+            self.batch_download_status = False
+            print("正在发送终止批量下载请求...")
+            wx.MessageBox("已发送终止请求，正在停止批量下载...", "提示", wx.OK | wx.ICON_INFORMATION)
+        else:
+            print("当前没有正在进行的批量下载任务")
+            wx.MessageBox("当前没有正在进行的批量下载任务", "提示", wx.OK | wx.ICON_INFORMATION)
+
 
     def on_clear_log(self, event):
         self.log_text.Clear()

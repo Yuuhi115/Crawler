@@ -54,7 +54,8 @@ def run_video_crawler(url, type):
         title = tree.xpath('/html/head/title')
         title_text = ""
         if type == "video" or type == "charge":
-            title_text = title[0].text.split("_")[0]
+            title_parts = title[0].text.split("_")
+            title_text = "_".join(title_parts[:-2])  # 去除最后两个元素后，用下划线连接
         elif type == "anime":
             title_text = title[0].text.split("-")[0]
         # 替换Windows系统不允许的字符
@@ -125,6 +126,7 @@ def run_video_crawler(url, type):
             old_file_path = f"{bv_path}/audio.mp3"
             new_file_path = f"{output_path}/{title_text}.mp3"
             os.rename(old_file_path, new_file_path)
+            os.rmdir(bv_path)
 
     except Exception as e:
         # logger.error(f"视频爬取失败：{e}")

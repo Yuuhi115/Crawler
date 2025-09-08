@@ -10,7 +10,7 @@ a = Analysis(
     ('./stealth.min.js','.'),
     ('./app_config/common_config.txt','app_config')
     ],
-    hiddenimports=['json','lxml','selenium','logging','requests','tqdm','sys','wx'],
+    hiddenimports=['json','lxml','selenium','logging','requests','tqdm','sys','wx','openpyxl'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -25,7 +25,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='BvCrawler_v1.1.2',
+    name='BvCrawler_v1.2.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -44,5 +44,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='BvCrawler_v1.1.2',
+    name='BvCrawler_v1.2.0',
 )

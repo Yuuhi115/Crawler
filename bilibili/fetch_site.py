@@ -1,8 +1,11 @@
+import os.path
 import time
+from itertools import batched
 
 from lxml import html
 import json
 from selenium import webdriver
+from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
@@ -11,7 +14,7 @@ from utils import *
 
 
 class BilibiliLoginCrawler:
-    def __init__(self, base_url = "https://www.bilibili.com", username = None, password = None):
+    def __init__(self, base_url="https://www.bilibili.com", username=None, password=None):
         self.username = username
         self.password = password
         # self.proxy_list = proxy_list
@@ -33,7 +36,6 @@ class BilibiliLoginCrawler:
         # proxy_parts = proxy_url.split('://')[1].split(':')
         # self.proxy_host = proxy_parts[0]
         # self.proxy_port = proxy_parts[1]
-
 
         # 创建EdgeOptions对象，配置option
         option = webdriver.EdgeOptions()
@@ -111,8 +113,10 @@ class BilibiliLoginCrawler:
                 login_window_button = self.driver.find_element(By.XPATH, '//div[@class="header-login-entry"]')
                 login_window_button.click()
                 time.sleep(2)
-                username_input = self.driver.find_element(By.XPATH, '//div[@class="login-pwd-wp"]//div[@class="form__item"]/input[@type="text"]')
-                password_input = self.driver.find_element(By.XPATH, '//div[@class="login-pwd-wp"]//div[@class="form__item"]/input[@type="password"]')
+                username_input = self.driver.find_element(By.XPATH,
+                                                          '//div[@class="login-pwd-wp"]//div[@class="form__item"]/input[@type="text"]')
+                password_input = self.driver.find_element(By.XPATH,
+                                                          '//div[@class="login-pwd-wp"]//div[@class="form__item"]/input[@type="password"]')
                 username_input.send_keys(self.username)
                 time.sleep(1)
                 password_input.send_keys(self.password)
@@ -202,6 +206,7 @@ class BilibiliLoginCrawler:
         if self.driver:
             self.driver.quit()
 
+
 def run_crawler_fetch_page():
     # proxy_list = load_proxy_list(proxy_file_path="../proxy_ip", proxy_filename="proxy_ip_china.csv")
     # print("代理列表：", proxy_list)
@@ -210,28 +215,207 @@ def run_crawler_fetch_page():
     if crawler.init_browser():
         crawler.fetch_page()
         crawler.get_cookies()
-        time.sleep(3)
+        time.sleep(1)
         crawler.driver.refresh()
         time.sleep(3)
         crawler.quit_crawler()
+
 
 def run_crawler_login(username, password):
     # proxy_list = load_proxy_list(proxy_file_path="../proxy_ip", proxy_filename="proxy_ip_china.csv")
     # print("代理列表：", proxy_list)
     crawler = BilibiliLoginCrawler(username=username, password=password)
     if crawler.init_browser():
-        crawler.login_with_QR_code()
+        login_status = crawler.login_with_QR_code()
         time.sleep(5)
         crawler.quit_crawler()
+        return login_status
+    return False
+
 
 def run_search_page(key_word):
     # key_word = input("请输入搜索词: ")
-    crawler = BilibiliLoginCrawler("https://search.bilibili.com/video?keyword="+key_word)
+    crawler = BilibiliLoginCrawler("https://search.bilibili.com/video?keyword=" + key_word)
     if crawler.init_browser():
         crawler.search_page()
 
 
+def run_favorite_category(uid):
+    import requests
+    cookie = get_cookies_string()
+    print(f"正在获取用户{uid}的收藏夹列表...", )
+    # url = f"https://space.bilibili.com/{uid}/favlist"
+    url = f"https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid={uid}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+        "Cookie": cookie,
+        "Referer": f"https://space.bilibili.com/{uid}/favlist"
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        try:
+            fav_json_data = json.loads(response.text)
+            return fav_json_data.get("data").get("list")
+        except json.JSONDecodeError:
+            print("收藏夹JSON解析错误")
+            print("原始响应内容:")
+            print(response.text)
+    else:
+        print("获取收藏夹列表失败")
 
+
+def run_uploader_page(uid):
+    import pandas as pd
+    crawler = BilibiliLoginCrawler()
+    if crawler.init_browser():
+        crawler.fetch_page()
+        crawler.get_cookies()
+        time.sleep(1)
+        crawler.driver.refresh()
+        time.sleep(1)
+        base_url = f"https://space.bilibili.com/{uid}/upload/video"
+        crawler.driver.get(base_url)
+        time.sleep(4)
+        for i in range(10):
+            crawler.driver.execute_script(f'document.documentElement.scrollTop={(i + 1) * 1000}')
+        time.sleep(1)
+        page_num_str = ""
+        try:
+            page_num_str = crawler.driver.find_element(By.XPATH,
+                                                       '//div[@class="vui_pagenation-go"]/span[@class="vui_pagenation-go__count"]')
+        except:
+            pass
+        page_number = 1
+        if page_num_str != "":
+            page_num_str = page_num_str.text
+            start = page_num_str.find("共") + 1
+            end = page_num_str.find("页")
+            page_number = int(page_num_str[start:end].strip())
+
+        video_title_list = []
+        video_link_list = []
+
+        crawler.content = crawler.driver.page_source
+        crawler.tree = html.fromstring(crawler.content)
+        uploader_name = crawler.tree.xpath('//div[@class="nickname"]/text()')[0]
+
+        for page_num in range(1, int(page_number + 1)):
+            print(f"正在获取 {uploader_name} 的视频列表 第{page_num}页")
+
+            # 滚动到页面底部
+            next_page_text_sizer = None
+            try:
+                next_page_text_sizer = crawler.driver.find_element(By.XPATH,
+                                                                   '//input[@class="vui_input__input vui_input__input-resizable"]')
+            except:
+                pass
+            if next_page_text_sizer is not None:
+                if page_num != 1:
+                    next_page_text_sizer.send_keys(page_num)
+                    time.sleep(1)
+                    next_page_text_sizer.send_keys(Keys.ENTER)
+                    time.sleep(4)
+                for i in range(10):
+                    crawler.driver.execute_script(f'document.documentElement.scrollTop={(i + 1) * 1000}')
+            time.sleep(1)
+            crawler.content = crawler.driver.page_source
+            crawler.tree = html.fromstring(crawler.content)
+            video_title_list_page = crawler.tree.xpath('//div[@class="bili-video-card__title"]/a/text()')
+            video_link_list_page = crawler.tree.xpath('//div[@class="bili-video-card__title"]/a/@href')
+            for video_title in video_title_list_page:
+                video_title_list.append(video_title)
+                print(f"视频标题: {video_title}")
+            for video_link in video_link_list_page:
+                video_link_list.append(video_link)
+        print(f"title_list_size:{len(video_title_list)}")
+        print(f"link_list_size:{len(video_link_list)}")
+        df = pd.DataFrame({"title": video_title_list, "link": video_link_list})
+        output_path = "batch_list"
+        if not os.path.exists(resource_path(output_path)):
+            os.mkdir(resource_path(output_path))
+        df.to_excel(resource_path(f"{output_path}/{uploader_name}_upload_video.xlsx"), index=False)
+        print(f"{uploader_name}上传视频列表已保存至 {resource_path(f"{output_path}\\{uploader_name}_upload_video.xlsx")}")
+        time.sleep(1)
+        crawler.quit_crawler()
+
+
+def run_favorite_category_page(uid, fid, f_title):
+    import pandas as pd
+    crawler = BilibiliLoginCrawler()
+    if crawler.init_browser():
+        crawler.fetch_page()
+        crawler.get_cookies()
+        time.sleep(1)
+        crawler.driver.refresh()
+        time.sleep(1)
+        base_url = f"https://space.bilibili.com/{uid}/favlist?fid={fid}&ftype=create"
+        crawler.driver.get(base_url)
+        print(f"正在检索用户 {uid} 的收藏夹 {f_title}")
+        time.sleep(4)
+        # 滚动到页面底部
+        for i in range(10):
+            crawler.driver.execute_script(f'document.documentElement.scrollTop={(i + 1) * 1000}')
+        time.sleep(1)
+        page_num_str = ""
+        try:
+            page_num_str = crawler.driver.find_element(By.XPATH,
+                                                       '//div[@class="vui_pagenation-go"]/span[@class="vui_pagenation-go__count"]')
+        except:
+            pass
+        page_number = 1
+        if page_num_str != "":
+            page_num_str = page_num_str.text
+            start = page_num_str.find("共") + 1
+            end = page_num_str.find("页")
+            page_number = int(page_num_str[start:end].strip())
+
+        video_title_list = []
+        video_link_list = []
+
+        crawler.content = crawler.driver.page_source
+        crawler.tree = html.fromstring(crawler.content)
+        user_name = crawler.tree.xpath('//div[@class="nickname"]/text()')[0]
+
+        for page_num in range(1, int(page_number + 1)):
+            print(f"正在获取 {user_name} 的收藏夹 {f_title} 第{page_num}页")
+
+            next_page_text_sizer = None
+            try:
+                next_page_text_sizer = crawler.driver.find_element(By.XPATH,
+                                                                   '//input[@class="vui_input__input vui_input__input-resizable"]')
+            except:
+                pass
+            if next_page_text_sizer is not None:
+                if page_num != 1:
+                    next_page_text_sizer.send_keys(page_num)
+                    time.sleep(1)
+                    next_page_text_sizer.send_keys(Keys.ENTER)
+                    time.sleep(4)
+                for i in range(10):
+                    crawler.driver.execute_script(f'document.documentElement.scrollTop={(i + 1) * 1000}')
+            time.sleep(1)
+            crawler.content = crawler.driver.page_source
+            crawler.tree = html.fromstring(crawler.content)
+            video_title_list_page = crawler.tree.xpath('//div[@class="items"]/div[@class="items__item"]//div[@class="bili-video-card__title bili-video-card__title--pr"]/a/text()')
+            video_link_list_page = crawler.tree.xpath('//div[@class="items"]/div[@class="items__item"]//div[@class="bili-video-card__title bili-video-card__title--pr"]/a/@href')
+            for video_title in video_title_list_page:
+                video_title_list.append(video_title)
+                print(f"视频标题: {video_title}")
+            for video_link in video_link_list_page:
+                video_link_list.append(video_link)
+        print(f"title_list_size:{len(video_title_list)}")
+        print(f"link_list_size:{len(video_link_list)}")
+        df = pd.DataFrame({"title": video_title_list, "link": video_link_list})
+        df = df[df['title'] != '已失效视频']
+
+        output_path = "batch_list"
+        if not os.path.exists(resource_path(output_path)):
+            os.mkdir(resource_path(output_path))
+        time.sleep(1)
+        df.to_excel(resource_path(f"{output_path}/{user_name}_favorite_{f_title}.xlsx"), index=False)
+        print(f"收藏夹 {f_title} 视频列表已保存至 {resource_path(f"{output_path}\\{user_name}_favorite_{f_title}.xlsx")}")
+        time.sleep(1)
+        crawler.quit_crawler()
 
 # def main():
 #     run_crawler_login()
