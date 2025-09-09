@@ -329,7 +329,7 @@ def run_uploader_page(uid):
                 video_link_list.append(video_link)
         print(f"title_list_size:{len(video_title_list)}")
         print(f"link_list_size:{len(video_link_list)}")
-        df = pd.DataFrame({"title": video_title_list, "link": video_link_list})
+        df = pd.DataFrame({"title": video_title_list, "link": video_link_list, "download_status": 0})
         output_path = "batch_list"
         if not os.path.exists(resource_path(output_path)):
             os.mkdir(resource_path(output_path))
@@ -405,7 +405,7 @@ def run_favorite_category_page(uid, fid, f_title):
                 video_link_list.append(video_link)
         print(f"title_list_size:{len(video_title_list)}")
         print(f"link_list_size:{len(video_link_list)}")
-        df = pd.DataFrame({"title": video_title_list, "link": video_link_list})
+        df = pd.DataFrame({"title": video_title_list, "link": video_link_list, "download_status": 0})
         df = df[df['title'] != '已失效视频']
 
         output_path = "batch_list"

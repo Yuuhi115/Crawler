@@ -349,8 +349,12 @@ class BilibiliCrawlerFrame(wx.Frame):
             # 根据文件扩展名读取文件
             if file_path.endswith('.xlsx'):
                 df = pd.read_excel(file_path)
+                select_df = df[df['download_status'] == 0]
+                exclude_df = df[df['download_status'] == 1]
             elif file_path.endswith('.csv'):
                 df = pd.read_csv(file_path)
+                select_df = df[df['download_status'] == 0]
+                exclude_df = df[df['download_status'] == 1]
             else:
                 wx.MessageBox("不支持的文件格式，请选择.xlsx或.csv文件", "错误", wx.OK | wx.ICON_ERROR)
                 return
@@ -362,16 +366,18 @@ class BilibiliCrawlerFrame(wx.Frame):
 
             # 检查title列是否存在
             has_title = 'title' in df.columns
+            has_download_status = 'download_status' in df.columns
 
             # 获取链接列
             links = df['link'].tolist()  # 转换为列表
+            select_links = select_df['link'].tolist()
 
             if not links:
                 wx.MessageBox("文件中没有找到有效的视频链接", "提示", wx.OK | wx.ICON_WARNING)
                 return
 
             # 保存批量数据
-            self.batch_data = df
+            self.batch_data = select_df
             self.batch_file_path = file_path
 
             # 更新UI显示
@@ -381,17 +387,20 @@ class BilibiliCrawlerFrame(wx.Frame):
 
             # 在日志区域输出即将下载的视频标题名
             print(f"成功导入视频列表文件: {file_path}")
-            print(f"共找到 {len(links)} 个视频:")
+            print(f"共找到 {len(links)} 个视频, 有 {len(exclude_df)} 个视频已下载")
 
-            if has_title:
+            # 1 替换为 "已下载"，0 替换为 "未下载"
+            download_status_list = ['已下载' if status == 1 else '未下载' for status in df['download_status'].tolist()]
+
+            if has_title and has_download_status:
                 titles = df['title'].tolist()
-                for i, (title, link) in enumerate(zip(titles, links)):
-                    print(f"  {i + 1}. {title}")
+                for i, (title, link, download_status) in enumerate(zip(titles, links, download_status_list)):
+                    print(f"  {i + 1}. {title}. {download_status}")
             else:
-                for i, link in enumerate(links):
-                    print(f"  {i + 1}. {link}")
+                for i, (link, download_status) in enumerate(zip(links, download_status_list)):
+                    print(f"  {i + 1}. {link}. {download_status}")
 
-            wx.MessageBox(f"成功导入 {len(links)} 个视频链接", "提示", wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox(f"成功导入 {len(select_links)} 个视频链接, 已下载 {len(exclude_df)} 个", "提示", wx.OK | wx.ICON_INFORMATION)
 
         except Exception as e:
             error_msg = f"导入视频列表过程中出现错误: {str(e)}"
@@ -420,7 +429,12 @@ class BilibiliCrawlerFrame(wx.Frame):
             if self.batch_data is None:
                 return
 
-            df = self.batch_data
+            # 读取原始文件以更新状态
+            if self.batch_file_path.endswith('.xlsx'):
+                original_df = pd.read_excel(self.batch_file_path)
+            else:
+                original_df = pd.read_csv(self.batch_file_path)
+            df = self.batch_data.copy()
 
             # 重置终止标志
             self.batch_download_stop_flag = False
@@ -447,6 +461,12 @@ class BilibiliCrawlerFrame(wx.Frame):
                                  f"批量下载已终止!\n已完成: {i} 个\n成功: {success_count} 个\n失败: {fail_count} 个",
                                  "提示", wx.OK | wx.ICON_WARNING)
                     print(f"批量下载已终止! 已完成: {i} 个, 成功: {success_count} 个, 失败: {fail_count} 个")
+                    # 保存更新后的状态到原始文件
+                    if self.batch_file_path.endswith('.xlsx'):
+                        original_df.to_excel(self.batch_file_path, index=False)
+                    else:
+                        original_df.to_csv(self.batch_file_path, index=False)
+
                     return
                 try:
                     print(f"正在下载第 {i + 1}/{len(links)} 个视频: {link}")
@@ -463,9 +483,18 @@ class BilibiliCrawlerFrame(wx.Frame):
                     if "www.bilibili.com/video/BV" in link:
                         run_video_crawler(link, "video")
                         success_count += 1
+                        # 更新原始DataFrame中的download_status
+                        # 找到原始DataFrame中对应链接的行索引并更新状态
+                        original_index = original_df[original_df['link'] == link].index
+                        if not original_index.empty:
+                            original_df.loc[original_index[0], 'download_status'] = 1
                     elif "www.bilibili.com/bangumi/play/ep" in link:
                         run_video_crawler(link, "anime")
                         success_count += 1
+                        # 更新原始DataFrame中的download_status
+                        original_index = original_df[original_df['link'] == link].index
+                        if not original_index.empty:
+                            original_df.loc[original_index[0], 'download_status'] = 1
                     else:
                         print(f"无效的Bilibili视频链接: {link}")
                         fail_count += 1
@@ -487,6 +516,7 @@ class BilibiliCrawlerFrame(wx.Frame):
                          "提示", wx.OK | wx.ICON_INFORMATION)
 
             print(f"批量下载完成! 成功: {success_count} 个, 失败: {fail_count} 个")
+            # df.to_excel(self.batch_file_path, index=False)
 
         except Exception as e:
             # 重置终止标志
