@@ -312,4 +312,137 @@ def merge_files(file_paths, output_path, output_file, GPU, bitrate):
         except Exception as e:
             print(f"删除原始文件时出错: {e}")
 
+def rotate_video(input_path, output_path, angle):
+    """
+        使用MoviePy旋转视频
+
+        Args:
+            input_path (str): 输入视频文件的路径
+            output_path (str): 输出视频文件的路径
+            angle (int): 旋转角度 (90, 180, 270 等)
+
+        Returns:
+            bool: 旋转是否成功
+        """
+    GPU = read_properties_from_config("gpu_acceleration")
+    print(f"视频旋转开启GPU加速: {GPU}")
+    bitrate = read_properties_from_config("bitrate")
+    try:
+        from moviepy import VideoFileClip
+        import os
+
+        # 检查输入文件是否存在
+        if not os.path.exists(input_path):
+            print(f"错误: 输入文件不存在: {input_path}")
+            return False
+
+        # 加载视频文件
+        print(f"正在加载视频文件: {input_path}")
+        video = VideoFileClip(input_path)
+        print(f"视频时长: {video.duration} 秒")
+        print(f"视频尺寸: {video.size[0]}x{video.size[1]}")
+
+        # 根据角度旋转视频
+        print(f"正在旋转视频 {angle} 度...")
+        if angle == 90:
+            rotated_video = video.rotated(270, expand=True)
+        elif angle == 180:
+            rotated_video = video.rotated(180, expand=True)
+        elif angle == 270:
+            rotated_video = video.rotated(90, expand=True)
+        else:
+            # 支持任意角度旋转
+            rotated_video = video.rotated(angle)
+
+        # 创建输出目录（如果不存在）
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        if GPU == "NVIDIA":
+            codec = "h264_nvenc"
+        elif GPU == "AMD":
+            codec = "h264_amf"
+        elif GPU == "Intel":
+            codec = "h264_qsv"
+        else:
+            codec = "libx264"
+
+        # 导出旋转后的视频
+        print(f"正在保存旋转后的视频到: {output_path}")
+        rotated_video.write_videofile(
+            output_path,
+            codec=codec,
+            bitrate=bitrate,
+            audio_codec='aac',
+            temp_audiofile='temp-audio.m4a',
+            remove_temp=True,
+            threads=1
+        )
+
+        # 关闭视频对象以释放资源
+        video.close()
+        rotated_video.close()
+
+        print(f"视频旋转完成: {output_path}")
+        return True
+
+    except Exception as e:
+        print(f"视频旋转过程中出现错误: {str(e)}")
+        return False
+
+def check_github_update():
+    import requests
+    import json
+    owner = "Yuuhi115"
+    repo_name = "Crawler"
+    current_version = "v1.2.1"
+    url = f"https://api.github.com/repos/{owner}/{repo_name}/releases/latest"
+    proxy_enabled_status = read_properties_from_config("proxy_enabled")
+
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0"
+    }
+    return_dict = dict()
+    try:
+        if proxy_enabled_status == "true":
+            proxy_ip = read_properties_from_config("proxy_ip")
+            proxy_port = read_properties_from_config("proxy_port")
+            proxy_url = f"{proxy_ip}:{proxy_port}"
+            proxies = {
+                "http": proxy_url,
+                "https": proxy_url
+            }
+            print(f"代理已启用，代理地址：{proxy_url}")
+            # logger.info(f"代理已启用，代理地址：{proxy_url}")
+            response = requests.get(url=url, headers=headers, proxies=proxies)
+        else:
+            response = requests.get(url=url, headers=headers)
+
+        if response.status_code == 200:
+            data = json.loads(response.text)
+            latest_version = data["tag_name"]
+            update_content = data["body"]
+            if latest_version > current_version:
+                return_dict["code"] = 200
+                return_dict["update_status"] = "True"
+                return_dict["update_url"] = f"https://github.com/{owner}/{repo_name}/releases/latest"
+                return_dict["update_message"] = f"发现新版本: ({latest_version}), 当前版本: ({current_version})"
+                return_dict["latest_version"] = latest_version
+                return_dict["update_content"] = update_content
+                return return_dict
+            else:
+                return_dict["code"] = 200
+                return_dict["update_status"] = "False"
+                return_dict["update_message"] = f"当前版本({current_version})已是最新"
+                return_dict["latest_version"] = latest_version
+                return return_dict
+        else:
+            return_dict["code"] = 500
+            return_dict["update_message"] = "未知异常"
+            return return_dict
+    except Exception as e:
+        return_dict["code"] = 403
+        return_dict["update_message"] = "检查更新失败"
+        return return_dict
 

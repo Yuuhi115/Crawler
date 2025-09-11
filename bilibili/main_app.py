@@ -10,7 +10,7 @@ import sys
 
 class BilibiliCrawlerFrame(wx.Frame):
     def __init__(self):
-        super().__init__(parent=None, title="Bilibili视频下载器", size=(600, 500))
+        super().__init__(parent=None, title="Bilibili视频下载器", size=(600, 600))
         self.panel = wx.Panel(self)
         self.batch_download_stop_flag = False  # 添加终止标志位
         self.batch_download_status = False
@@ -66,7 +66,11 @@ class BilibiliCrawlerFrame(wx.Frame):
         search_box = wx.StaticBox(self.panel, label="其他功能")
         search_sizer = wx.StaticBoxSizer(search_box, wx.VERTICAL)
 
-        search_other_H_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        config_box = wx.StaticBox(self.panel, label="配置区域")
+        config_sizer = wx.StaticBoxSizer(config_box, wx.VERTICAL)
+
+        search_other_H_sizer_config = wx.BoxSizer(wx.HORIZONTAL)
+        search_other_H_sizer_util = wx.BoxSizer(wx.HORIZONTAL)
         self.search_btn = wx.Button(self.panel, label="搜索视频")
         self.search_btn.Bind(wx.EVT_BUTTON, self.on_search)
 
@@ -82,15 +86,26 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.favorite_btn = wx.Button(self.panel, label="检索收藏夹")
         self.favorite_btn.Bind(wx.EVT_BUTTON, self.on_open_favorite)
 
-        search_other_H_sizer.Add(self.search_btn, 0, wx.ALL, 5)
-        search_other_H_sizer.Add(self.export_config_btn, 0, wx.ALL, 5)
-        search_other_H_sizer.Add(self.proxy_config_btn, 0, wx.ALL, 5)
-        search_other_H_sizer.Add(self.uploader_btn, 0, wx.ALL, 5)
-        search_other_H_sizer.Add(self.favorite_btn, 0, wx.ALL, 5)
+        self.rotate_video_btn = wx.Button(self.panel, label="视频翻转")
+        self.rotate_video_btn.Bind(wx.EVT_BUTTON, self.on_rotate_video)
 
-        search_sizer.Add(search_other_H_sizer, 0, wx.EXPAND)
+        self.check_update_btn = wx.Button(self.panel, label="检查更新")
+        self.check_update_btn.Bind(wx.EVT_BUTTON, self.on_check_update)
+
+        search_other_H_sizer_util.Add(self.search_btn, 0, wx.ALL, 5)
+        search_other_H_sizer_util.Add(self.uploader_btn, 0, wx.ALL, 5)
+        search_other_H_sizer_util.Add(self.favorite_btn, 0, wx.ALL, 5)
+        search_other_H_sizer_util.Add(self.rotate_video_btn, 0, wx.ALL, 5)
+        search_other_H_sizer_util.Add(self.check_update_btn, 0, wx.ALL, 5)
+
+        search_other_H_sizer_config.Add(self.export_config_btn, 0, wx.ALL, 5)
+        search_other_H_sizer_config.Add(self.proxy_config_btn, 0, wx.ALL, 5)
+
+        search_sizer.Add(search_other_H_sizer_util, 0, wx.EXPAND)
+        config_sizer.Add(search_other_H_sizer_config, 0, wx.EXPAND)
 
         main_sizer.Add(search_sizer, 0, wx.EXPAND | wx.ALL, 5)
+        main_sizer.Add(config_sizer, 0, wx.EXPAND | wx.ALL, 5)
 
         # 视频链接区域
         video_box = wx.StaticBox(self.panel, label="视频下载")
@@ -524,6 +539,107 @@ class BilibiliCrawlerFrame(wx.Frame):
             error_msg = f"批量下载过程中出现错误: {str(e)}"
             print(error_msg)
             wx.MessageBox(error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+    def on_rotate_video(self, event):
+        """处理视频旋转功能"""
+        # 创建文件选择对话框
+        wildcard = "视频文件 (*.mp4)|*.mp4|所有文件 (*.*)|*.*"
+        dialog = wx.FileDialog(self, "选择要旋转的视频文件",
+                               wildcard=wildcard,
+                               style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+
+        if dialog.ShowModal() == wx.ID_OK:
+            input_path = dialog.GetPath()
+
+            # 选择旋转角度
+            choices = ["90%", "180%", "270%"]
+            angle_dialog = wx.SingleChoiceDialog(self, "请选择旋转角度(顺时针):", "旋转设置", choices)
+
+            if angle_dialog.ShowModal() == wx.ID_OK:
+                selection = angle_dialog.GetSelection()
+                angles = [90, 180, 270]
+                angle = angles[selection]
+
+                # 选择输出文件路径
+                save_dialog = wx.FileDialog(self, "保存旋转后的视频",
+                                            wildcard="MP4 files (*.mp4)|*.mp4",
+                                            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+
+                if save_dialog.ShowModal() == wx.ID_OK:
+                    output_path = save_dialog.GetPath()
+
+                    # 确保输出路径以.mp4结尾
+                    if not output_path.endswith('.mp4'):
+                        output_path += '.mp4'
+
+                    # 在后台线程中执行旋转操作
+                    rotate_thread = threading.Thread(
+                        target=self.rotate_video_worker,
+                        args=(input_path, output_path, angle)
+                    )
+                    rotate_thread.daemon = True
+                    rotate_thread.start()
+
+                save_dialog.Destroy()
+            angle_dialog.Destroy()
+
+        dialog.Destroy()
+
+    def rotate_video_worker(self, input_path, output_path, angle):
+        """视频旋转工作线程"""
+        try:
+            print(f"开始旋转视频: {input_path}")
+            print(f"旋转角度: {angle}度")
+
+            # 执行视频旋转
+            success = rotate_video(input_path, output_path, angle)
+
+            if success:
+                wx.CallAfter(wx.MessageBox,
+                             f"视频旋转完成!\n已保存至: {output_path}",
+                             "提示", wx.OK | wx.ICON_INFORMATION)
+                print(f"视频旋转完成! 已保存至: {output_path}")
+            else:
+                wx.CallAfter(wx.MessageBox,
+                             "视频旋转失败，请查看日志",
+                             "错误", wx.OK | wx.ICON_ERROR)
+        except Exception as e:
+            error_msg = f"视频旋转过程中出现错误: {str(e)}"
+            print(error_msg)
+            wx.CallAfter(wx.MessageBox, error_msg, "错误", wx.OK | wx.ICON_ERROR)
+
+    def on_check_update(self, event):
+        """
+        检查更新按钮事件处理
+        """
+        check_update_thread = threading.Thread(target=self.check_update_worker)
+        check_update_thread.daemon = True
+        check_update_thread.start()
+
+    def check_update_worker(self):
+        return_dict = check_github_update()
+        if return_dict["code"] == 200:
+            update_status = return_dict['update_status']
+            if update_status == "True":
+                # 使用信息对话框显示消息，并在后续提供打开链接的选项
+                update_content = return_dict['update_content']
+                update_msg = f"{return_dict['update_message']}\n\n更新内容: \n{update_content}\n\n点击'是'打开下载页面"
+                update_url = return_dict["update_url"]
+                # 在主线程中显示对话框
+                wx.CallAfter(self.show_update_dialog, update_msg, update_url, update_content)
+            else:
+                wx.MessageBox(return_dict['update_message'], "提示", wx.OK | wx.ICON_INFORMATION)
+        elif return_dict["code"] == 403:
+            wx.MessageBox("请开启代理后再检测更新", "提示", wx.OK | wx.ICON_INFORMATION)
+        else:
+            wx.MessageBox("未知异常，请联系作者", "错误", wx.OK | wx.ICON_ERROR)
+
+    def show_update_dialog(self, message, url, content):
+        """在主线程中显示更新对话框"""
+        result = wx.MessageBox(message, "更新提示", wx.YES_NO | wx.ICON_INFORMATION)
+        if result == wx.YES:
+            import webbrowser
+            webbrowser.open(url)
 
     def on_stop_batch(self, event):
         """
