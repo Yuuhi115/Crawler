@@ -2,7 +2,9 @@
 
 
 a = Analysis(
-    ['main_app.py','fetch_site.py','fetch_video.py','utils.py','__init__.py'],
+    ['ttk_app.py','fetch_site.py','fetch_video.py','utils.py',
+    '__init__.py','export_config_dialog.py','proxy_config_dialog.py',
+    'choice_dialog.py'],
     pathex=['.'],
     binaries=[],
     datas=[
@@ -10,11 +12,11 @@ a = Analysis(
     ('./stealth.min.js','.'),
     ('./app_config/common_config.txt','app_config')
     ],
-    hiddenimports=['json','lxml','selenium','logging','requests','tqdm','sys','wx','openpyxl'],
+    hiddenimports=['json','lxml','selenium','logging','requests','tqdm','sys','openpyxl'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['pysimplegui','yt-dlp','jieba','wordcloud','matplotlib','certifi','psycopg2-binary','pymysql','peewee','flask'],
+    excludes=['pysimplegui','yt-dlp','jieba','wordcloud','matplotlib','certifi','wx'],
     noarchive=False,
     optimize=0,
 )

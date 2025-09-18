@@ -16,8 +16,9 @@ class BilibiliCrawlerFrame(wx.Frame):
         self.batch_download_status = False
         self.cookie_expiry = None
         self.create_ui()
-        self.SetMinSize((500, 400))
+        self.SetMinSize((600, 600))
         self.Center()
+        self.SetDoubleBuffered(True)  # 减少界面闪烁
 
     def get_cookie_expiry(self, cookie_name):
         """
@@ -277,20 +278,23 @@ class BilibiliCrawlerFrame(wx.Frame):
         if os.path.exists(resource_path("./app_config/cookies.json")):
             uid = get_cookie_by_name("DedeUserID").get("value")
             fav_category_list = self.search_favorite_category(uid)
-            # 创建收藏夹选项列表
-            choices = [f"{fav['title']}" for fav in fav_category_list]
-            # 创建单选对话框
-            dialog = wx.SingleChoiceDialog(self, "请选择收藏夹:", "收藏夹选择", choices)
-            if dialog.ShowModal() == wx.ID_OK:
-                selection = dialog.GetSelection()
-                selected_favorite = fav_category_list[selection]
-                print(f"已选择收藏夹: {selected_favorite['title']} (ID: {selected_favorite['id']})")
-                # 在后台线程中执行搜索操作
-                search_favorite_thread = threading.Thread(target=self.search_favorite_worker, args=(selected_favorite, uid))
-                search_favorite_thread.daemon = True
-                search_favorite_thread.start()
+            if fav_category_list is not None:
+                # 创建收藏夹选项列表
+                choices = [f"{fav['title']}" for fav in fav_category_list]
+                # 创建单选对话框
+                dialog = wx.SingleChoiceDialog(self, "请选择收藏夹:", "收藏夹选择", choices)
+                if dialog.ShowModal() == wx.ID_OK:
+                    selection = dialog.GetSelection()
+                    selected_favorite = fav_category_list[selection]
+                    print(f"已选择收藏夹: {selected_favorite['title']} (ID: {selected_favorite['id']})")
+                    # 在后台线程中执行搜索操作
+                    search_favorite_thread = threading.Thread(target=self.search_favorite_worker, args=(selected_favorite, uid))
+                    search_favorite_thread.daemon = True
+                    search_favorite_thread.start()
+                else:
+                    print("未选择收藏夹")
             else:
-                print("未选择收藏夹")
+                wx.MessageBox("系统异常，未获取收藏夹列表", "提示", wx.OK | wx.ICON_WARNING)
         else:
             wx.MessageBox("请先登录！", "提示", wx.OK | wx.ICON_WARNING)
 
