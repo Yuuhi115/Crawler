@@ -74,6 +74,7 @@ def run_comment_crawler(video_url):
     while True:
         if r_page > int(limit_page):
             # print(f"r_page:{r_page}")
+            sub_comments_df.to_excel(resource_path(f"{file_path}/sub_comments.xlsx"), index=False)
             comments_df.to_excel(resource_path(f"{file_path}/comments.xlsx"), index=False)
             print(f"评论已保存至 {resource_path(f'{file_path}/comments.xlsx')}")
             return True
