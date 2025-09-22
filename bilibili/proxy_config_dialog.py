@@ -183,7 +183,7 @@ class ProxyConfigDialog(wx.Dialog):
         # 这里应该添加实际的连接测试逻辑
         # wx.MessageBox(f"代理连接测试功能待实现\nIP: {ip}\n端口: {port}", "提示", wx.OK | wx.ICON_INFORMATION)
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
         }
         proxy_url = f"http://{ip}:{port}"
         print(f"代理地址：{proxy_url}")

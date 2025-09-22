@@ -45,7 +45,7 @@ class BilibiliLoginCrawler:
 
         # 设置User-Agent等参数
         option.add_argument(
-            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0')
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0')
         option.add_argument('--disable-blink-features=AutomationControlled')
         option.add_experimental_option("excludeSwitches", ["enable-automation"])
         option.add_experimental_option('useAutomationExtension', False)
@@ -247,7 +247,7 @@ def run_favorite_category(uid):
     # url = f"https://space.bilibili.com/{uid}/favlist"
     url = f"https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid={uid}"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
         "Cookie": cookie,
         "Referer": f"https://space.bilibili.com/{uid}/favlist"
     }
