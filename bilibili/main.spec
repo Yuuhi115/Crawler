@@ -2,7 +2,8 @@
 
 
 a = Analysis(
-    ['main_app.py','fetch_site.py','fetch_video.py','utils.py','__init__.py'],
+    ['main_app.py','fetch_site.py','fetch_video.py','utils.py',
+    '__init__.py','export_config_dialog.py','proxy_config_dialog.py'],
     pathex=['.'],
     binaries=[],
     datas=[
@@ -14,7 +15,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['pysimplegui','yt-dlp','jieba','wordcloud','matplotlib','certifi','psycopg2-binary','pymysql','peewee','flask'],
+    excludes=['pysimplegui','yt-dlp','jieba','wordcloud',
+    'matplotlib','psycopg2-binary','pymysql',
+    'peewee','flask','psaw','praw'],
     noarchive=False,
     optimize=0,
 )
@@ -25,7 +28,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='BvCrawler_v1.2.1',
+    name='BvCrawler_v1.2.2',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -44,5 +47,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='BvCrawler_v1.2.1',
+    name='BvCrawler_v1.2.2',
 )

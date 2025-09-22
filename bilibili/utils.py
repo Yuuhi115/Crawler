@@ -395,7 +395,7 @@ def check_github_update():
     import json
     owner = "Yuuhi115"
     repo_name = "Crawler"
-    current_version = "v1.2.1"
+    current_version = "v1.2.2"
     url = f"https://api.github.com/repos/{owner}/{repo_name}/releases/latest"
     proxy_enabled_status = read_properties_from_config("proxy_enabled")
 

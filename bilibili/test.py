@@ -1,6 +1,9 @@
 import json
 import time
+from http.client import responses
+
 import pandas as pd
+import requests
 
 from utils import *
 from fetch_site import run_favorite_category
@@ -33,7 +36,22 @@ from fetch_site import run_favorite_category
 
 # print(get_cookie_by_name("DedeUserID").get("value"))
 # print(run_favorite_category())
-df = pd.read_excel(resource_path("./batch_list/微型校园接收机_favorite_1.xlsx"))
-private_videos = df[df["title"].str.contains("Pre", na=False)]
-print(private_videos)
+# df = pd.read_excel(resource_path("./batch_list/微型校园接收机_favorite_1.xlsx"))
+# private_videos = df[df["title"].str.contains("Pre", na=False)]
+# print(private_videos)
+cookie = get_cookies_string()
+video_url = "https://www.bilibili.com/video/BV1qkpfzMEqY/?spm_id_from=333.1007.tianma.1-1-1.click&vd_source=07d3ef37851690622a60e79828e5a383"
+headers = {
+            "User-Agent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0',
+            "Referer": video_url,
+            "Cookie": cookie
+        }
+
+r_page = 2
+oid = "115240196901267"
+root_comment_url = f'https://api.bilibili.com/x/v2/reply/main?next={r_page}&type=1&oid={oid}&mode=3'
+response = requests.get(url=root_comment_url, headers=headers)
+comment_source = json.loads(response.text)
+with open("root_comment.json", "w", encoding="utf-8") as f:
+    json.dump(comment_source, f, ensure_ascii=False, indent=4)
 
