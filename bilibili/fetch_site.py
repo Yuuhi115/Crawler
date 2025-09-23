@@ -1,6 +1,7 @@
 import os.path
 import time
 from itertools import batched
+import wx
 
 from lxml import html
 import json
@@ -59,6 +60,22 @@ class BilibiliLoginCrawler:
             service = EdgeService(executable_path=resource_path("./msedgedriver.exe"))
             # 创建EdgeDriver对象
             self.driver = webdriver.Edge(service=service, options=option)
+
+            web_version = self.driver.capabilities['browserVersion']
+            web_version_main = self.driver.capabilities['browserVersion'].split('.')[0]
+            # 获取 EdgeDriver 版本
+            driver_version = self.driver.capabilities['msedge']['msedgedriverVersion'].split(' ')[0]
+            driver_version_main = driver_version.split('.')[0]
+
+            if web_version_main != driver_version_main:
+                message = (f"当前浏览器版本:{web_version}，浏览器驱动版本:{driver_version}\n请点击'是'下载对应的驱动版本，并将解压后的exe文件移动到{resource_path('msedgedriver.exe')}"
+                           f"\nTips:替换驱动版本前，请打开任务管理器，将任务中包含Microsoft Edge WebDriver的进程结束。")
+                result = wx.MessageBox(message,"提示", wx.YES_NO | wx.ICON_INFORMATION)
+                print(message)
+                if result == wx.YES:
+                    import webbrowser
+                    webbrowser.open(f"https://msedgewebdriverstorage.z22.web.core.windows.net/?prefix={web_version}/")
+                    return False
 
             # 设置各种超时
             self.driver.set_page_load_timeout(30)  # 页面加载超时30秒
