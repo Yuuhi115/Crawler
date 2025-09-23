@@ -61,22 +61,6 @@ class BilibiliLoginCrawler:
             # 创建EdgeDriver对象
             self.driver = webdriver.Edge(service=service, options=option)
 
-            web_version = self.driver.capabilities['browserVersion']
-            web_version_main = self.driver.capabilities['browserVersion'].split('.')[0]
-            # 获取 EdgeDriver 版本
-            driver_version = self.driver.capabilities['msedge']['msedgedriverVersion'].split(' ')[0]
-            driver_version_main = driver_version.split('.')[0]
-
-            if web_version_main != driver_version_main:
-                message = (f"当前浏览器版本:{web_version}，浏览器驱动版本:{driver_version}\n请点击'是'下载对应的驱动版本，并将解压后的exe文件移动到{resource_path('msedgedriver.exe')}"
-                           f"\nTips:替换驱动版本前，请打开任务管理器，将任务中包含Microsoft Edge WebDriver的进程结束。")
-                result = wx.MessageBox(message,"提示", wx.YES_NO | wx.ICON_INFORMATION)
-                print(message)
-                if result == wx.YES:
-                    import webbrowser
-                    webbrowser.open(f"https://msedgewebdriverstorage.z22.web.core.windows.net/?prefix={web_version}/")
-                    return False
-
             # 设置各种超时
             self.driver.set_page_load_timeout(30)  # 页面加载超时30秒
             self.driver.implicitly_wait(10)  # 隐式等待10秒
@@ -93,6 +77,70 @@ class BilibiliLoginCrawler:
             return True
         except Exception as e:
             print(f"初始化浏览器失败：{e}")
+            try:
+                # 即使WebDriver初始化失败，我们仍然可以尝试获取版本信息
+                # 通过命令行方式获取浏览器版本
+                import subprocess
+                import re
+
+                # 获取Edge浏览器版本
+                try:
+                    # Windows下获取Edge版本的命令
+                    result = subprocess.run(
+                        ['reg', 'query', 'HKEY_CURRENT_USER\\Software\\Microsoft\\Edge\\BLBeacon', '/v', 'version'],
+                        capture_output=True, text=True, check=True
+                    )
+                    web_version = re.search(r'version\s+REG_SZ\s+(.*)', result.stdout).group(1).strip()
+                    web_version_main = web_version.split('.')[0]
+                except:
+                    # 备用方法
+                    try:
+                        result = subprocess.run(
+                            ['powershell', 'Get-AppxPackage', 'Microsoft.MicrosoftEdge.Stable'],
+                            capture_output=True, text=True, check=True
+                        )
+                        version_match = re.search(r'Version\s*:\s*([^\s]+)', result.stdout)
+                        web_version = version_match.group(1) if version_match else "unknown"
+                        web_version_main = web_version.split('.')[0] if web_version != "unknown" else "unknown"
+                    except:
+                        web_version = "unknown"
+                        web_version_main = "unknown"
+
+                # 获取驱动版本
+                try:
+                    # 使用命令行方式执行驱动程序获取版本
+                    import os
+                    driver_path = resource_path("./msedgedriver.exe")
+                    if os.path.exists(driver_path):
+                        result = subprocess.run([driver_path, '--version'], capture_output=True, text=True, check=True)
+                        driver_version_output = result.stdout.strip()
+                        # 提取版本号
+                        driver_version = driver_version_output.split(' ')[3]  # 假设输出格式为 "msedgedriver version 123.456.789.0"
+                        driver_version_main = driver_version.split('.')[0]
+                    else:
+                        driver_version = "unknown"
+                        driver_version_main = "unknown"
+                except:
+                    driver_version = "unknown"
+                    driver_version_main = "unknown"
+
+                if web_version_main != driver_version_main and web_version_main != "unknown" and driver_version_main != "unknown":
+                    message = (
+                        f"当前浏览器版本:{web_version}，浏览器驱动版本:{driver_version}\n请点击'是'下载对应的驱动版本，并将解压后的exe文件移动到{resource_path('msedgedriver.exe')}"
+                        f"\nTips:替换驱动版本前，请打开任务管理器，将任务中包含Microsoft Edge WebDriver的进程结束。")
+                    result = wx.MessageBox(message, "提示", wx.YES_NO | wx.ICON_INFORMATION)
+                    print(message)
+                    if result == wx.YES:
+                        import webbrowser
+                        webbrowser.open(
+                            f"https://msedgewebdriverstorage.z22.web.core.windows.net/?prefix={web_version}/")
+                        return False
+                elif web_version == "unknown":
+                    print("无法检测到Edge浏览器版本，请确保已安装Microsoft Edge浏览器")
+                elif driver_version == "unknown":
+                    print("无法检测到Edge驱动版本，请确保msedgedriver.exe文件存在且可执行")
+            except Exception as version_error:
+                print(f"检测版本信息时出错: {version_error}")
             return False
 
     def get_cookies(self):
